@@ -330,6 +330,57 @@ final class BilibiliHooks {
         );
     }
 }
+
+    private static void installTabHostResolverHook(
+            XposedModule module, ClassLoader classLoader) {
+        try {
+            Class<?> resolver = Class.forName(
+                    "Aj.l", false, classLoader);
+
+            Method resolveTabHost = resolver.getDeclaredMethod(
+                    "a", View.class);
+
+            module.log(
+                    Log.INFO,
+                    TAG,
+                    "Bilibili: TabHost resolver found: " + resolveTabHost
+            );
+
+            module.hook(resolveTabHost)
+                    .setId("bilibili-tab-host-resolver")
+                    .setExceptionMode(
+                            XposedInterface.ExceptionMode.PROTECTIVE
+                    )
+                    .intercept(chain -> {
+                        Object result = chain.proceed();
+
+                        if (result instanceof View) {
+                            module.log(
+                                    Log.INFO,
+                                    TAG,
+                                    "Bilibili: TabHost resolver fired: "
+                                            + result.getClass().getName()
+                            );
+                        }
+
+                        return result;
+                    });
+
+            module.log(
+                    Log.INFO,
+                    TAG,
+                    "Bilibili: TabHost resolver hook installed"
+            );
+
+        } catch (Throwable throwable) {
+            module.log(
+                    Log.WARN,
+                    TAG,
+                    "Bilibili TabHost resolver hook unavailable",
+                    throwable
+            );
+        }
+    }
     
     private static void installHomeInsetsHook(XposedModule module, ClassLoader classLoader) {
         try {
