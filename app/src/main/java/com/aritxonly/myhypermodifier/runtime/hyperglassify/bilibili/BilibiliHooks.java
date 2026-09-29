@@ -55,6 +55,7 @@ final class BilibiliHooks {
             installFocusHook(module, mainActivity);
             installTabClickHook(module, classLoader);
             installPublishTouchHook(module, classLoader);
+            installHomeFragmentViewHook(module, classLoader);
             installHomeInsetsHook(module, classLoader);
         } catch (Throwable throwable) {
             INSTALLED.set(false);
@@ -202,6 +203,39 @@ final class BilibiliHooks {
             module.log(Log.WARN, TAG, "Bilibili publish touch hook unavailable", throwable);
         }
     }
+    
+    private static void installHomeFragmentViewHook(XposedModule module, ClassLoader classLoader) {
+    try {
+        Class<?> homeFragment = Class.forName(
+                "tv.danmaku.bili.ui.main2.HomeFragmentV2", false, classLoader);
+        Method onViewCreated = homeFragment.getDeclaredMethod(
+                "onViewCreated", View.class, Bundle.class);
+        module.hook(onViewCreated)
+                .setId("bilibili-home-fragment-view-created")
+                .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+                .intercept(chain -> {
+                    Object result = chain.proceed();
+                    Object root = chain.getArg(0);
+                    Object fragment = chain.getThisObject();
+                    if (root instanceof View && fragment != null) {
+                        try {
+                            Method getActivity = fragment.getClass().getMethod("getActivity");
+                            Object activity = getActivity.invoke(fragment);
+                            if (activity instanceof Activity) {
+                                BilibiliFloatingNavigation.onHomeViewCreated(
+                                        (Activity) activity, (View) root);
+                            }
+                        } catch (Throwable throwable) {
+                            module.log(Log.WARN, TAG,
+                                    "Bilibili HomeFragment activity lookup failed", throwable);
+                        }
+                    }
+                    return result;
+                });
+    } catch (Throwable throwable) {
+        module.log(Log.WARN, TAG, "Bilibili HomeFragment hook unavailable", throwable);
+    }
+}
 
     private static void installHomeInsetsHook(XposedModule module, ClassLoader classLoader) {
         try {
