@@ -1,64 +1,57 @@
-name: Build HyperModifier release
+name: Build HyperModifier debug (verified)
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      HAS_SIGNING_KEY: ${{ secrets.HYPERMODIFIER_KEYSTORE_BASE64 != '' }}
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
 
-      - uses: gradle/actions/setup-gradle@v4
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Read project version
-        id: version
+      - name: Clean and assemble debug APK
+        run: ./gradlew clean assembleDebug --no-daemon
+
+      - name: Verify Bilibili HomeFragment hook is present in APK
         shell: bash
         run: |
-          source_name=$(sed -n 's/^[[:space:]]*versionName = "\([0-9.]*\)"/\1/p' app/build.gradle.kts | head -n 1)
-          source_code=$(sed -n 's/^[[:space:]]*versionCode = \([0-9][0-9]*\)/\1/p' app/build.gradle.kts | head -n 1)
-          test -n "$source_name" && test -n "$source_code"
-          echo "name=$source_name" >> "$GITHUB_OUTPUT"
-          echo "code=$source_code" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
 
-      - name: Assemble installable debug APK
-        run: ./gradlew assembleDebug
+          apk="app/build/outputs/apk/debug/app-debug.apk"
 
-      - name: Upload APK artifact
+          test -f "$apk"
+
+          unzip -q "$apk" -d "$RUNNER_TEMP/hm-apk"
+
+          if ! grep -aR -q 'bilibili-home-fragment-view-created' "$RUNNER_TEMP/hm-apk"; then
+            echo 'ERROR: rebuilt APK does not contain the Bilibili HomeFragment hook id.'
+            exit 1
+          fi
+
+          echo 'Verified: Bilibili HomeFragment hook is present in the APK.'
+
+      - name: Print APK SHA-256
+        shell: bash
+        run: |
+          sha256sum app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload verified APK
         uses: actions/upload-artifact@v4
         with:
-          name: HyperModifier-v${{ steps.version.outputs.name }}
+          name: HyperModifier-debug-verified
           path: app/build/outputs/apk/debug/app-debug.apk
-
-      # Add these repository secrets to publish an installable release:
-      # HYPERMODIFIER_KEYSTORE_BASE64, HYPERMODIFIER_KEY_ALIAS and HYPERMODIFIER_SIGNING_PASSWORD.
-      - name: Restore signing key
-        if: ${{ env.HAS_SIGNING_KEY == 'true' }}
-        env:
-          HYPERMODIFIER_KEYSTORE_BASE64: ${{ secrets.HYPERMODIFIER_KEYSTORE_BASE64 }}
-        run: echo "$HYPERMODIFIER_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/hypermodifier.jks"
-
-      - name: Assemble signed release APK
-        if: ${{ env.HAS_SIGNING_KEY == 'true' }}
-        env:
-          HYPERMODIFIER_SIGNING_PASSWORD: ${{ secrets.HYPERMODIFIER_SIGNING_PASSWORD }}
-        run: ./gradlew assembleRelease -PhypermodifierStoreFile="$RUNNER_TEMP/hypermodifier.jks" -PhypermodifierKeyAlias=${{ secrets.HYPERMODIFIER_KEY_ALIAS }}
-
-      - name: Publish GitHub Release
-        if: ${{ env.HAS_SIGNING_KEY == 'true' }}
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.version.outputs.name }}
-          name: HyperModifier v${{ steps.version.outputs.name }}
-          body_path: RELEASE_NOTES_v${{ steps.version.outputs.name }}.md
-          files: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
