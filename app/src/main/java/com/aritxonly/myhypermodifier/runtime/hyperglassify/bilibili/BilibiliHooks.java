@@ -58,7 +58,9 @@ final class BilibiliHooks {
             installPublishTouchHook(module, classLoader);
             installHomeFragmentViewHook(module, classLoader);
             installTabHostResolverHook(module, classLoader);
+            installTabHostAttachHook(module,classLoader);
             installTabHostConstructorHook(module, classLoader);
+            installLayoutInflaterHook(module);
             installHomeInsetsHook(module, classLoader);
         } catch (Throwable throwable) {
             INSTALLED.set(false);
@@ -483,6 +485,122 @@ final class BilibiliHooks {
                 Log.WARN,
                 TAG,
                 "Bilibili TabHost constructor hook unavailable",
+                throwable
+        );
+    }
+}
+    
+    private static void installLayoutInflaterHook(
+        XposedModule module) {
+
+    try {
+
+        Method inflate = LayoutInflater.class.getDeclaredMethod(
+                "inflate",
+                int.class,
+                ViewGroup.class,
+                boolean.class
+        );
+
+
+        module.hook(inflate)
+                .setId("bilibili-layout-inflate")
+                .setExceptionMode(
+                        XposedInterface.ExceptionMode.PROTECTIVE
+                )
+                .intercept(chain -> {
+
+
+                    Object result = chain.proceed();
+
+
+                    Object id = chain.getArg(0);
+
+
+                    module.log(
+                            Log.INFO,
+                            TAG,
+                            "Bilibili inflate layout id="
+                                    + id
+                                    + " result="
+                                    + (result == null ?
+                                    "null":
+                                    result.getClass().getName())
+                    );
+
+
+                    return result;
+
+                });
+
+
+    } catch(Throwable t){
+
+        module.log(
+                Log.WARN,
+                TAG,
+                "inflate hook failed",
+                t
+        );
+    }
+}
+    
+    private static void installTabHostAttachHook(
+        XposedModule module,
+        ClassLoader classLoader) {
+
+    try {
+
+        Class<?> tabHost =
+                Class.forName(
+                        "com.bilibili.lib.homepage.widget.TabHost",
+                        false,
+                        classLoader);
+
+
+        Method attach =
+                tabHost.getDeclaredMethod(
+                        "onAttachedToWindow");
+
+
+        module.log(
+                Log.INFO,
+                TAG,
+                "Bilibili: TabHost attach found"
+        );
+
+
+        module.hook(attach)
+                .setId("bilibili-tabhost-attached")
+                .setExceptionMode(
+                        XposedInterface.ExceptionMode.PROTECTIVE)
+                .intercept(chain -> {
+
+                    Object result = chain.proceed();
+
+                    module.log(
+                            Log.INFO,
+                            TAG,
+                            "Bilibili: TabHost ATTACHED"
+                    );
+
+                    return result;
+                });
+
+
+        module.log(
+                Log.INFO,
+                TAG,
+                "Bilibili: TabHost attach hook installed"
+        );
+
+
+    } catch(Throwable throwable){
+
+        module.log(
+                Log.WARN,
+                TAG,
+                "Bilibili TabHost attach hook unavailable",
                 throwable
         );
     }
