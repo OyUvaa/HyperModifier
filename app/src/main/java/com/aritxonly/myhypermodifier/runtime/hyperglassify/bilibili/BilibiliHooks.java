@@ -7,6 +7,7 @@ import android.view.MotionEvent;
 import android.view.View;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Constructor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import io.github.libxposed.api.XposedInterface;
@@ -412,14 +413,58 @@ final class BilibiliHooks {
                 )
                 .intercept(chain -> {
 
-                    module.log(
-                            Log.INFO,
-                            TAG,
-                            "Bilibili: TabHost CREATED"
-                    );
+    Object result = chain.proceed();
 
-                    return chain.proceed();
-                });
+    Object thisObject = chain.getThisObject();
+
+    module.log(
+            Log.INFO,
+            TAG,
+            "Bilibili: TabHost CREATED "
+            + thisObject.getClass().getName()
+    );
+
+
+    try {
+
+        if (thisObject instanceof View) {
+
+            View tabHostView = (View) thisObject;
+
+            android.content.Context context =
+                    tabHostView.getContext();
+
+
+            if (context instanceof Activity) {
+
+                module.log(
+                        Log.INFO,
+                        TAG,
+                        "Bilibili: passing TabHost to navigation"
+                );
+
+
+                BilibiliFloatingNavigation
+                        .onHomeViewCreated(
+                                (Activity) context,
+                                tabHostView
+                        );
+            }
+        }
+
+    } catch(Throwable t){
+
+        module.log(
+                Log.WARN,
+                TAG,
+                "TabHost handoff failed",
+                t
+        );
+    }
+
+
+    return result;
+});
 
 
         module.log(
@@ -428,6 +473,9 @@ final class BilibiliHooks {
                 "Bilibili: TabHost constructor hook installed"
         );
 
+        java.lang.reflect.Constructor<?> constructor2 =
+        tabHost.getDeclaredConstructor(
+                android.content.Context.class);
 
     } catch (Throwable throwable) {
 
