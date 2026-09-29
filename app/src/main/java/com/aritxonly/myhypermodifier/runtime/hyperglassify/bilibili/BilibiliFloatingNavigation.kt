@@ -28,6 +28,7 @@ internal object BilibiliFloatingNavigation {
     private val tabMethods = WeakHashMap<Class<*>, Pair<Method, Method>?>()
     private val tabHostClasses = WeakHashMap<Class<*>, Boolean>()
     private val homeStates = WeakHashMap<Activity, HomeState>()
+    private val homeRoots = WeakHashMap<Activity, WeakReference<View>>()
     private val delegate = NativeViewBottomBarNavigation(
         NativeViewBottomBarTarget(
             logName = "Bilibili",
@@ -89,6 +90,20 @@ internal object BilibiliFloatingNavigation {
     @JvmStatic fun dispose(activity: Activity) {
         delegate.dispose(activity)
         homeStates.remove(activity)
+        homeRoots.remove(activity)
+    }
+    @JvmStatic
+fun onHomeViewCreated(activity: Activity, root: View) {
+    homeRoots[activity] = WeakReference(root)
+    val tabHost = findTabHostInTree(root)
+    BilibiliHooks.logDiagnostic(
+        if (tabHost != null) {
+            "HomeFragment view captured; TabHost=${tabHost.javaClass.name}"
+        } else {
+            "HomeFragment view captured; TabHost not found yet"
+        },
+    )
+    delegate.refresh(activity)
     }
     @JvmStatic fun onTouchEvent(activity: Activity, event: MotionEvent) =
         delegate.onTouchEvent(activity, event)
@@ -114,14 +129,25 @@ internal object BilibiliFloatingNavigation {
     }
 
     private fun findTabHost(root: View): View? {
-        if (root is ViewGroup) {
-            if (isTabHost(root.javaClass)) return root
-            repeat(root.childCount) { index ->
-                findTabHost(root.getChildAt(index))?.let { return it }
-            }
-        }
-        return null
+    val cachedRoot = homeRoots.entries
+        .firstOrNull { it.key.window.decorView === root }
+        ?.value
+        ?.get()
+    if (cachedRoot != null) {
+        findTabHostInTree(cachedRoot)?.let { return it }
     }
+    return findTabHostInTree(root)
+}
+
+    private fun findTabHostInTree(root: View): View? {
+    if (isTabHost(root.javaClass)) return root
+    if (root is ViewGroup) {
+        repeat(root.childCount) { index ->
+            findTabHostInTree(root.getChildAt(index))?.let { return it }
+        }
+    }
+    return null
+}
 
     private fun isTabHost(type: Class<*>): Boolean = tabHostClasses.getOrPut(type) {
         if (generateSequence(type as Class<*>?) { it.superclass }.any { it.name == TAB_HOST }) {
