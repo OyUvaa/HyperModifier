@@ -383,6 +383,63 @@ final class BilibiliHooks {
         }
     }
     
+    private static void installTabHostConstructorHook(
+        XposedModule module, ClassLoader classLoader) {
+
+    try {
+        Class<?> tabHost = Class.forName(
+                "com.bilibili.lib.homepage.widget.TabHost",
+                false,
+                classLoader
+        );
+
+        java.lang.reflect.Constructor<?> constructor =
+                tabHost.getDeclaredConstructor(
+                        android.content.Context.class,
+                        android.util.AttributeSet.class
+                );
+
+        module.log(
+                Log.INFO,
+                TAG,
+                "Bilibili: TabHost constructor found"
+        );
+
+        module.hook(constructor)
+                .setId("bilibili-tabhost-constructor")
+                .setExceptionMode(
+                        XposedInterface.ExceptionMode.PROTECTIVE
+                )
+                .intercept(chain -> {
+
+                    module.log(
+                            Log.INFO,
+                            TAG,
+                            "Bilibili: TabHost CREATED"
+                    );
+
+                    return chain.proceed();
+                });
+
+
+        module.log(
+                Log.INFO,
+                TAG,
+                "Bilibili: TabHost constructor hook installed"
+        );
+
+
+    } catch (Throwable throwable) {
+
+        module.log(
+                Log.WARN,
+                TAG,
+                "Bilibili TabHost constructor hook unavailable",
+                throwable
+        );
+    }
+}
+    
     private static void installHomeInsetsHook(XposedModule module, ClassLoader classLoader) {
         try {
             // Keep the app's listener authoritative; adjust its bottom inset after it runs.
