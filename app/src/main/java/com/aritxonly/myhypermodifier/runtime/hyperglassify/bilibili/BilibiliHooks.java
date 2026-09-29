@@ -205,67 +205,111 @@ final class BilibiliHooks {
         }
     }
     
-    private static void installHomeFragmentViewHook(XposedModule module, ClassLoader classLoader) {
+    private static void installHomeFragmentViewHook(
+        XposedModule module, ClassLoader classLoader) {
+
+    module.log(
+            Log.INFO,
+            TAG,
+            "Bilibili: ENTER installHomeFragmentViewHook"
+    );
+
     try {
+        module.log(
+                Log.INFO,
+                TAG,
+                "Bilibili: loading HomeFragmentV2"
+        );
+
         Class<?> homeFragment = Class.forName(
-                "tv.danmaku.bili.ui.main2.HomeFragmentV2", false, classLoader);
+                "tv.danmaku.bili.ui.main2.HomeFragmentV2",
+                false,
+                classLoader
+        );
+
+        module.log(
+                Log.INFO,
+                TAG,
+                "Bilibili: HomeFragmentV2 loaded: "
+                        + homeFragment.getName()
+        );
+
         Method onViewCreated = homeFragment.getDeclaredMethod(
-                "onViewCreated", View.class, Bundle.class);
+                "onViewCreated",
+                View.class,
+                Bundle.class
+        );
+
+        module.log(
+                Log.INFO,
+                TAG,
+                "Bilibili: HomeFragment onViewCreated found: "
+                        + onViewCreated
+        );
+
         module.hook(onViewCreated)
                 .setId("bilibili-home-fragment-view-created")
-                .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+                .setExceptionMode(
+                        XposedInterface.ExceptionMode.PROTECTIVE
+                )
                 .intercept(chain -> {
+
+                    module.log(
+                            Log.INFO,
+                            TAG,
+                            "Bilibili: HomeFragment onViewCreated FIRED"
+                    );
+
                     Object result = chain.proceed();
+
                     Object root = chain.getArg(0);
                     Object fragment = chain.getThisObject();
+
+                    module.log(
+                            Log.INFO,
+                            TAG,
+                            "Bilibili: HomeFragment root="
+                                    + (root == null
+                                    ? "null"
+                                    : root.getClass().getName())
+                    );
+
                     if (root instanceof View && fragment != null) {
                         try {
-                            Method getActivity = fragment.getClass().getMethod("getActivity");
-                            Object activity = getActivity.invoke(fragment);
+                            Method getActivity =
+                                    fragment.getClass().getMethod(
+                                            "getActivity"
+                                    );
+
+                            Object activity =
+                                    getActivity.invoke(fragment);
+
+                            module.log(
+                                    Log.INFO,
+                                    TAG,
+                                    "Bilibili: HomeFragment activity="
+                                            + (activity == null
+                                            ? "null"
+                                            : activity.getClass().getName())
+                            );
+
                             if (activity instanceof Activity) {
-                                BilibiliFloatingNavigation.onHomeViewCreated(
-                                        (Activity) activity, (View) root);
+                                BilibiliFloatingNavigation
+                                        .onHomeViewCreated(
+                                                (Activity) activity,
+                                                (View) root
+                                        );
                             }
+
                         } catch (Throwable throwable) {
-                            module.log(Log.WARN, TAG,
-                                    "Bilibili HomeFragment activity lookup failed", throwable);
+                            module.log(
+                                    Log.WARN,
+                                    TAG,
+                                    "Bilibili HomeFragment activity lookup failed",
+                                    throwable
+                            );
                         }
                     }
-                    return result;
-                });
-    } catch (Throwable throwable) {
-        module.log(Log.WARN, TAG, "Bilibili HomeFragment hook unavailable", throwable);
-    }
-}
-    private static void installTabHostResolverHook(
-        XposedModule module, ClassLoader classLoader) {
-    try {
-        Class<?> resolver = Class.forName(
-                "Aj.l", false, classLoader);
-
-        Method resolveTabHost = resolver.getDeclaredMethod(
-                "a", View.class);
-
-        module.log(
-                Log.INFO,
-                TAG,
-                "Bilibili: TabHost resolver found: " + resolveTabHost
-        );
-
-        module.hook(resolveTabHost)
-                .setId("bilibili-tab-host-resolver")
-                .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
-                .intercept(chain -> {
-                    Object result = chain.proceed();
-
-                    if (result instanceof View) {
-                        module.log(
-                                Log.INFO,
-                                TAG,
-                                "Bilibili: TabHost resolver fired: "
-                                        + result.getClass().getName()
-                        );
-                    }
 
                     return result;
                 });
@@ -273,14 +317,15 @@ final class BilibiliHooks {
         module.log(
                 Log.INFO,
                 TAG,
-                "Bilibili: TabHost resolver hook installed"
+                "Bilibili: HomeFragment view hook INSTALLED"
         );
 
     } catch (Throwable throwable) {
+
         module.log(
                 Log.WARN,
                 TAG,
-                "Bilibili TabHost resolver hook unavailable",
+                "Bilibili HomeFragment hook unavailable",
                 throwable
         );
     }
