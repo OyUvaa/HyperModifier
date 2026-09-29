@@ -5,6 +5,8 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.LayoutInflater;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Constructor;
@@ -58,8 +60,8 @@ final class BilibiliHooks {
             installPublishTouchHook(module, classLoader);
             installHomeFragmentViewHook(module, classLoader);
             installTabHostResolverHook(module, classLoader);
-            installTabHostAttachHook(module,classLoader);
             installTabHostConstructorHook(module, classLoader);
+            installTabHostAttachHook(module, classLoader);
             installLayoutInflaterHook(module);
             installHomeInsetsHook(module, classLoader);
         } catch (Throwable throwable) {
