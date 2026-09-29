@@ -57,6 +57,7 @@ final class BilibiliHooks {
             installPublishTouchHook(module, classLoader);
             installHomeFragmentViewHook(module, classLoader);
             installTabHostResolverHook(module, classLoader);
+            installTabHostConstructorHook(module, classLoader);
             installHomeInsetsHook(module, classLoader);
         } catch (Throwable throwable) {
             INSTALLED.set(false);
